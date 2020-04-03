@@ -120,12 +120,13 @@ func (t *Transaction) AddScriptHashToAttribute(scriptHash helper.UInt160) {
 }
 
 // add address if the account is not in transaction attributes
-func (t *Transaction) AddAddressToAttribute(address string, err error) {
+func (t *Transaction) AddAddressToAttribute(address string) error {
 	scriptHash, err := helper.AddressToScriptHash(address)
 	if err != nil {
-		return
+		return err
 	}
 	t.AddScriptHashToAttribute(scriptHash)
+	return nil
 }
 
 type ITransaction interface {
@@ -155,9 +156,7 @@ func AddSignature(transaction ITransaction, key *keys.KeyPair) error {
 		return err
 	}
 	tx.Witnesses = append(tx.Witnesses, witness)
-	sort.Slice(tx.Witnesses, func(i, j int) bool {
-		return tx.Witnesses[i].scriptHash.Less(tx.Witnesses[j].scriptHash)
-	})
+	sort.Sort(WitnessSlice(tx.Witnesses))
 	return nil
 }
 
@@ -192,8 +191,6 @@ func AddMultiSignature(transaction ITransaction, pairs []*keys.KeyPair, m int, p
 		return err
 	}
 	tx.Witnesses = append(tx.Witnesses, witness)
-	sort.Slice(tx.Witnesses, func(i, j int) bool {
-		return tx.Witnesses[i].scriptHash.Less(tx.Witnesses[j].scriptHash)
-	})
+	sort.Sort(WitnessSlice(tx.Witnesses))
 	return nil
 }

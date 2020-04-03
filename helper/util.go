@@ -8,13 +8,13 @@ import (
 	"github.com/joeqian10/neo-gogogo/crypto"
 )
 
-// bytes to hex string
+//BytesToHex bytes to hex string
 func BytesToHex(b []byte) string {
 	return hex.EncodeToString(b)
 }
 
-// Simple hex string to bytes
-func HexTobytes(hexstring string) (b []byte) {
+//HexToBytes Simple hex string to bytes
+func HexToBytes(hexstring string) (b []byte) {
 	b, _ = hex.DecodeString(hexstring)
 	return b
 }
@@ -38,6 +38,16 @@ func ReverseBytes(data []byte) []byte {
 	return b
 }
 
+//ToNibbles ..
+func ToNibbles(data []byte) []byte {
+	r := make([]byte, len(data)*2)
+	for i := 0; i < len(data); i++ {
+		r[i*2] = data[i] >> 4
+		r[i*2+1] = data[i] & 0x0f
+	}
+	return r
+}
+
 func ScriptHashToAddress(scriptHash UInt160) string {
 	var addressVersion byte = 0x17
 	data := append([]byte{addressVersion}, scriptHash.Bytes()...)
@@ -58,7 +68,7 @@ func AddressToScriptHash(address string) (UInt160, error) {
 
 // ReverseString
 func ReverseString(input string) string {
-	return BytesToHex(ReverseBytes(HexTobytes(input)))
+	return BytesToHex(ReverseBytes(HexToBytes(input)))
 }
 
 // UInt32ToBytes ...
@@ -78,7 +88,41 @@ func Int64ToBytes(n int64) []byte {
 func Abs(x int64) int64 {
 	if x >= 0 {
 		return x
-	} else {
-		return -x
 	}
+	return -x
 }
+
+func BytesToUInt64(bs []byte) uint64 {
+	l := len(bs)
+	if l > 8 {
+		return 18446744073709551615 // max value of uint64
+	}
+	bs = PadRight(bs, 8)
+	return binary.LittleEndian.Uint64(bs)
+}
+
+func PadRight(data []byte, length int) []byte {
+	if len(data) >= length {
+		return data
+	}
+	newData := data
+	for len(newData) < length {
+		newData = append(newData, byte(0))
+	}
+	return newData
+}
+
+//func HashToInt(hash []byte) *big.Int {
+//	orderBits := 256
+//	orderBytes := (orderBits + 7) / 8
+//	if len(hash) > orderBytes {
+//		hash = hash[:orderBytes]
+//	}
+//
+//	ret := new(big.Int).SetBytes(hash)
+//	excess := len(hash)*8 - orderBits
+//	if excess > 0 {
+//		ret.Rsh(ret, uint(excess))
+//	}
+//	return ret
+//}
