@@ -79,7 +79,7 @@ func TestTransactionBuilder_GetGasConsumed(t *testing.T) {
 		EndPoint: "",
 		Client:   clientMock,
 	}
-	clientMock.On("InvokeScript", mock.Anything).Return(rpc.InvokeScriptResponse{
+	clientMock.On("InvokeScript", mock.Anything, mock.Anything).Return(rpc.InvokeScriptResponse{
 		RpcResponse:   rpc.RpcResponse{
 			JsonRpc: "2.0",
 			ID: 1,
@@ -94,7 +94,7 @@ func TestTransactionBuilder_GetGasConsumed(t *testing.T) {
 			Script:"00c1046e616d656763d26113bac4208254d98a3eebaee66230ead7b9",
 			State:"HALT",
 			GasConsumed:"0.126",
-			Stack: []models.InvokeStackResult{
+			Stack: []models.InvokeStack{
 				{
 					Type:  "ByteArray",
 					Value: "516c696e6b20546f6b656e",
@@ -103,7 +103,7 @@ func TestTransactionBuilder_GetGasConsumed(t *testing.T) {
 		},
 	})
 
-	f, e := tb.GetGasConsumed([]byte{})
+	f, e := tb.GetGasConsumed([]byte{}, helper.ZeroScriptHashString)
 	assert.Nil(t, e)
 	assert.Equal(t, helper.Fixed8FromFloat64(0).Value, f.Value) // 10 gas free limit
 }
@@ -216,4 +216,30 @@ func TestTransactionBuilder_GetTransactionInputs(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(inputs))
 	assert.Equal(t, int64(1125000000000), payTotal.Value)
+}
+
+func TestTransactionBuilder_LoadScriptTransaction(t *testing.T) {
+	var clientMock = new(rpc.RpcClientMock)
+	var tb = TransactionBuilder{
+		EndPoint: "",
+		Client:   clientMock,
+	}
+
+	script := []byte{ 0x01, 0x02, 0x03, 0x04 }
+	paramList := "0710"
+	returnType := "05"
+	hasStorage := true
+	hasDynamicInvoke := true
+	isPayable := true
+	var contractName = "test"
+	var contractVersion = "1.0"
+	var contractAuthor = "ngd"
+	var contractEmail = "test@ngd.neo.org"
+	var contractDescription = "cd"
+
+	itx, scriptHash, err := tb.LoadScriptTransaction(script, paramList, returnType, hasStorage, hasDynamicInvoke, isPayable, contractName, contractVersion, contractAuthor, contractEmail, contractDescription)
+
+	assert.Nil(t, err)
+	assert.Equal(t, "706ea1768da7f0c489bf931b362c2d26d8cbd2ec", scriptHash.String())
+	assert.Equal(t, "0263641074657374406e67642e6e656f2e6f7267036e676403312e300474657374575502071004010203046804f66ca56e", helper.BytesToHex(itx.Script))
 }

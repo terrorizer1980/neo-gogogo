@@ -33,7 +33,7 @@ func (n *Nep5Helper) TotalSupply() (uint64, error) {
 	sb := sc.NewScriptBuilder()
 	sb.MakeInvocationScript(n.scriptHash.Bytes(), "totalSupply", []sc.ContractParameter{})
 	script := sb.ToArray()
-	response := n.Client.InvokeScript(helper.BytesToHex(script))
+	response := n.Client.InvokeScript(helper.BytesToHex(script), helper.ZeroScriptHashString)
 	if response.HasError() {
 		return 0, fmt.Errorf(response.ErrorResponse.Error.Message)
 	}
@@ -44,7 +44,7 @@ func (n *Nep5Helper) TotalSupply() (uint64, error) {
 		return 0, fmt.Errorf("no stack result returned")
 	}
 	stack := response.Result.Stack[0]
-	bytes := helper.HexToBytes(stack.Value)
+	bytes := helper.HexToBytes(stack.Value.(string))
 	for len(bytes) < 8 {
 		bytes = append(bytes, byte(0x00))
 	}
@@ -56,7 +56,7 @@ func (n *Nep5Helper) Name() (string, error) {
 	sb := sc.NewScriptBuilder()
 	sb.MakeInvocationScript(n.scriptHash.Bytes(), "name", []sc.ContractParameter{})
 	script := sb.ToArray()
-	response := n.Client.InvokeScript(helper.BytesToHex(script))
+	response := n.Client.InvokeScript(helper.BytesToHex(script), helper.ZeroScriptHashString)
 	if response.HasError() {
 		return "", fmt.Errorf(response.ErrorResponse.Error.Message)
 	}
@@ -67,7 +67,7 @@ func (n *Nep5Helper) Name() (string, error) {
 		return "", fmt.Errorf("no stack result returned")
 	}
 	stack := response.Result.Stack[0]
-	name := string(helper.HexToBytes(stack.Value))
+	name := string(helper.HexToBytes(stack.Value.(string)))
 	return name, nil
 }
 
@@ -75,7 +75,7 @@ func (n *Nep5Helper) Symbol() (string, error) {
 	sb := sc.NewScriptBuilder()
 	sb.MakeInvocationScript(n.scriptHash.Bytes(), "symbol", []sc.ContractParameter{})
 	script := sb.ToArray()
-	response := n.Client.InvokeScript(helper.BytesToHex(script))
+	response := n.Client.InvokeScript(helper.BytesToHex(script), helper.ZeroScriptHashString)
 	if response.HasError() {
 		return "", fmt.Errorf(response.ErrorResponse.Error.Message)
 	}
@@ -86,7 +86,7 @@ func (n *Nep5Helper) Symbol() (string, error) {
 		return "", fmt.Errorf("no stack result returned")
 	}
 	stack := response.Result.Stack[0]
-	symbol := string(helper.HexToBytes(stack.Value))
+	symbol := string(helper.HexToBytes(stack.Value.(string)))
 	return symbol, nil
 }
 
@@ -94,7 +94,7 @@ func (n *Nep5Helper) Decimals() (uint8, error) {
 	sb := sc.NewScriptBuilder()
 	sb.MakeInvocationScript(n.scriptHash.Bytes(), "decimals", []sc.ContractParameter{})
 	script := sb.ToArray()
-	response := n.Client.InvokeScript(helper.BytesToHex(script))
+	response := n.Client.InvokeScript(helper.BytesToHex(script), helper.ZeroScriptHashString)
 	if response.HasError() {
 		return 0, fmt.Errorf(response.ErrorResponse.Error.Message)
 	}
@@ -105,7 +105,7 @@ func (n *Nep5Helper) Decimals() (uint8, error) {
 		return 0, fmt.Errorf("no stack result returned")
 	}
 	stack := response.Result.Stack[0]
-	decimals, err := strconv.ParseUint(stack.Value, 10, 8)
+	decimals, err := strconv.ParseUint(stack.Value.(string), 10, 8)
 	if err != nil {
 		return 0, fmt.Errorf("conversion failed")
 	}
@@ -120,7 +120,7 @@ func (n *Nep5Helper) BalanceOf(address helper.UInt160) (uint64, error) {
 	}
 	sb.MakeInvocationScript(n.scriptHash.Bytes(), "balanceOf", []sc.ContractParameter{cp})
 	script := sb.ToArray()
-	response := n.Client.InvokeScript(helper.BytesToHex(script))
+	response := n.Client.InvokeScript(helper.BytesToHex(script), helper.ZeroScriptHashString)
 	if response.HasError() {
 		return 0, fmt.Errorf(response.ErrorResponse.Error.Message)
 	}
@@ -131,7 +131,7 @@ func (n *Nep5Helper) BalanceOf(address helper.UInt160) (uint64, error) {
 		return 0, fmt.Errorf("no stack result returned")
 	}
 	stack := response.Result.Stack[0]
-	bytes := helper.HexToBytes(stack.Value)
+	bytes := helper.HexToBytes(stack.Value.(string))
 	for len(bytes) < 8 {
 		bytes = append(bytes, byte(0x00))
 	}

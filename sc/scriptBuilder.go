@@ -92,8 +92,8 @@ func (sb *ScriptBuilder) EmitPushBigInt(number big.Int) error {
 		return sb.Emit(PUSH1 - 1 + OpCode(b))
 	}
 	// need little endian
-	reversed := helper.ReverseBytes(number.Bytes()) // Bytes() returns big-endian
-	return sb.EmitPushBytes(reversed)
+	b := helper.BigIntToNeoBytes(&number)
+	return sb.EmitPushBytes(b)
 }
 
 func (sb *ScriptBuilder) EmitPushInt(number int) error {
@@ -151,8 +151,8 @@ func (sb *ScriptBuilder) EmitPushParameter(data ContractParameter) error {
 	case Boolean:
 		err = sb.EmitPushBool(data.Value.(bool))
 	case Integer:
-		num := data.Value.(int64)
-		err = sb.EmitPushBigInt(*big.NewInt(num))
+		num := data.Value.(big.Int)
+		err = sb.EmitPushBigInt(num)
 	case Hash160:
 		u, e := helper.UInt160FromBytes(data.Value.([]byte))
 		if e != nil {
@@ -190,7 +190,19 @@ func (sb *ScriptBuilder) EmitPushParameter(data ContractParameter) error {
 	return nil
 }
 
-func (sb *ScriptBuilder) EmitSysCall(api string, compress bool) error {
+func (sb *ScriptBuilder) EmitSysCall(api string, args []ContractParameter) error {
+	var err error
+	l := len(args)
+	for i := l-1; i >= 0; i-- {
+		err = sb.EmitPushParameter(args[i])
+	}
+	if err != nil {
+		return err
+	}
+	return sb.EmitVmSysCall(api, true)
+}
+
+func (sb *ScriptBuilder) EmitVmSysCall(api string, compress bool) error {
 	if len(api) == 0 {
 		return fmt.Errorf("argument api is empty")
 	}
@@ -206,3 +218,5 @@ func (sb *ScriptBuilder) EmitSysCall(api string, compress bool) error {
 	arg := append([]byte{byte(len(b))}, b...)
 	return sb.Emit(SYSCALL, arg...)
 }
+
+

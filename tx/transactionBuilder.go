@@ -5,6 +5,8 @@ import (
 	"github.com/joeqian10/neo-gogogo/helper"
 	"github.com/joeqian10/neo-gogogo/rpc"
 	"github.com/joeqian10/neo-gogogo/rpc/models"
+	"github.com/joeqian10/neo-gogogo/sc"
+	"math/big"
 	"sort"
 )
 
@@ -16,7 +18,7 @@ var GasToken, _ = helper.UInt256FromString(GasTokenId)
 
 type TransactionBuilder struct {
 	EndPoint string
-	Client   rpc.IRpcClient
+	Client   rpc.IRpcClient // new node
 }
 
 func NewTransactionBuilder(endPoint string) *TransactionBuilder {
@@ -97,6 +99,9 @@ func (tb *TransactionBuilder) MakeContractTransaction(from helper.UInt160, to he
 
 // get transaction inputs according to the amount, and return UTXOs and their total amount
 func (tb *TransactionBuilder) GetTransactionInputs(from helper.UInt160, assetId helper.UInt256, amount helper.Fixed8) ([]*CoinReference, helper.Fixed8, error) {
+	if amount.Equal(helper.Zero) {
+		return nil, helper.Zero, nil
+	}
 	unspentBalance, available, err := tb.GetBalance(from, assetId)
 	if err != nil {
 		return nil, helper.Zero, err
@@ -145,21 +150,21 @@ func (tb *TransactionBuilder) GetBalance(account helper.UInt160, assetId helper.
 }
 
 // this is a general api for invoking smart contract and creating an invocation transaction, including transferring nep-5 assets
-func (tb *TransactionBuilder) MakeInvocationTransaction(script []byte, from helper.UInt160, attributes []*TransactionAttribute, changeAddress helper.UInt160, fee helper.Fixed8) (*InvocationTransaction, error) {
+func (tb *TransactionBuilder) MakeInvocationTransaction(script []byte, from helper.UInt160, attributes []*TransactionAttribute, changeAddress helper.UInt160, sysFee helper.Fixed8, netFee helper.Fixed8) (*InvocationTransaction, error) {
 	if changeAddress.String() == "0000000000000000000000000000000000000000" {
 		changeAddress = from
 	}
 	// use rpc to get gas consumed
-	gas, err := tb.GetGasConsumed(script)
+	gasConsumed, err := tb.GetGasConsumed(script, from.String())
 	if err != nil {
 		return nil, err
 	}
-	fee = fee.Add(*gas)
 	itx := NewInvocationTransaction(script)
 	if attributes != nil {
 		itx.Attributes = attributes
 	}
-	itx.Gas = *gas
+	itx.Gas = gasConsumed.Add(sysFee) // add sys fee
+	fee := itx.Gas.Add(netFee) // add net fee
 	if itx.Size() > 1024 {
 		fee = fee.Add(helper.Fixed8FromFloat64(0.001))
 		fee = fee.Add(helper.Fixed8FromFloat64(float64(itx.Size()) * 0.00001))
@@ -176,10 +181,14 @@ func (tb *TransactionBuilder) MakeInvocationTransaction(script []byte, from help
 	return itx, nil
 }
 
-func (tb *TransactionBuilder) GetGasConsumed(script []byte) (*helper.Fixed8, error) {
-	response := tb.Client.InvokeScript(helper.BytesToHex(script))
+func (tb *TransactionBuilder) GetGasConsumed(script []byte, checkWitnessHashes string) (*helper.Fixed8, error) {
+	response := tb.Client.InvokeScript(helper.BytesToHex(script), checkWitnessHashes)
 	if response.HasError() {
 		return nil, fmt.Errorf(response.ErrorResponse.Error.Message)
+	}
+	if response.Result.State == "FAULT" { // use ScriptContainer in contract will cause engine fault
+		result := helper.Fixed8FromInt64(0)
+		return &result, nil
 	}
 	// transfer script will return "FAULT" when checking witness, so comment error for this issue https://github.com/neo-project/neo/pull/335
 	//if response.Result.State == "FAULT" {
@@ -198,7 +207,6 @@ func (tb *TransactionBuilder) GetGasConsumed(script []byte) (*helper.Fixed8, err
 	}
 }
 
-//
 func (tb *TransactionBuilder) MakeClaimTransaction(from helper.UInt160, changeAddress helper.UInt160, attributes []*TransactionAttribute) (*ClaimTransaction, error) {
 	// use rpc to get claimable gas from the address
 	claims, total, err := tb.GetClaimables(from)
@@ -247,4 +255,67 @@ func (tb *TransactionBuilder) GetClaimables(from helper.UInt160) ([]*CoinReferen
 		total = total.Add(helper.Fixed8FromFloat64(claimables[i].Unclaimed))
 	}
 	return claims, &total, nil
+}
+
+func (tb *TransactionBuilder) LoadScriptTransaction(script []byte,
+	paramTypes string, returnTypeHexString string,
+	hasStorage bool, hasDynamicInvoke bool, isPayable bool,
+	contractName string, contractVersion string, contractAuthor string, contractEmail string, contractDescription string) (tx *InvocationTransaction, scriptHash helper.UInt160, err error) {
+	scriptHash, err = helper.BytesToScriptHash(script)
+	if err != nil {
+		return nil, scriptHash, err
+	}
+	parameterList := helper.HexToBytes(paramTypes)                                    // 0710
+	returnType := sc.ContractParameterType(helper.HexToBytes(returnTypeHexString)[0]) // 05
+	property := sc.NoProperty
+	if hasStorage {
+		property |= sc.HasStorage
+	}
+	if hasDynamicInvoke {
+		property |= sc.HasDynamicInvoke
+	}
+	if isPayable {
+		property |= sc.Payable
+	}
+	p1 := sc.ContractParameter{
+		Type:  sc.ByteArray,
+		Value: script,
+	}
+	p2 := sc.ContractParameter{
+		Type:  sc.ByteArray,
+		Value: parameterList,
+	}
+	p3 := sc.ContractParameter{
+		Type:  sc.Integer,
+		Value: *big.NewInt(int64(returnType)),
+	}
+	p4 := sc.ContractParameter{
+		Type:  sc.Integer,
+		Value: *big.NewInt(int64(property)),
+	}
+	p5 := sc.ContractParameter{
+		Type:  sc.String,
+		Value: contractName,
+	}
+	p6 := sc.ContractParameter{
+		Type:  sc.String,
+		Value: contractVersion,
+	}
+	p7 := sc.ContractParameter{
+		Type:  sc.String,
+		Value: contractAuthor,
+	}
+	p8 := sc.ContractParameter{
+		Type:  sc.String,
+		Value: contractEmail,
+	}
+	p9 := sc.ContractParameter{
+		Type:  sc.String,
+		Value: contractDescription,
+	}
+	sb := sc.NewScriptBuilder()
+	sb.EmitSysCall("Neo.Contract.Create", []sc.ContractParameter{p1, p2, p3, p4, p5, p6, p7, p8, p9})
+	newScript := sb.ToArray()
+	tx = NewInvocationTransaction(newScript)
+	return tx, scriptHash, nil
 }

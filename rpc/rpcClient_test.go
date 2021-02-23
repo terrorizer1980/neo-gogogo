@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"bytes"
+	"github.com/joeqian10/neo-gogogo/rpc/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"io/ioutil"
@@ -1011,7 +1012,7 @@ func TestRpcClient_GetTxOut(t *testing.T) {
 		}`))),
 	}, nil)
 
-	response := rpc.GetTxOut("",0)
+	response := rpc.GetTxOut("", 0)
 	r := response.Result
 	assert.Equal(t, 0, r.N)
 	assert.Equal(t, "0xc56f33fc6ecfcd0c225c4ab356fee59390af8560be0e930faebe74a6daff7c9b", r.Asset)
@@ -1184,7 +1185,7 @@ func TestRpcClient_GetValidators(t *testing.T) {
 	response := rpc.GetValidators()
 	r := response.Result
 	v := r[0]
-	assert.Equal(t, "025bdf3f181f53e9696227843950deb72dcd374ded17c057159513c3d0abe20b64", v.PublicKey )
+	assert.Equal(t, "025bdf3f181f53e9696227843950deb72dcd374ded17c057159513c3d0abe20b64", v.PublicKey)
 	assert.Equal(t, "90101602", v.Votes)
 	assert.Equal(t, true, v.Active)
 }
@@ -1270,7 +1271,7 @@ func TestRpcClient_InvokeFunction(t *testing.T) {
 		}`))),
 	}, nil)
 
-	response := rpc.InvokeFunction("", "")
+	response := rpc.InvokeFunction("", "", "")
 	r := response.Result
 	assert.Equal(t, "00c1046e616d656763d26113bac4208254d98a3eebaee66230ead7b9", r.Script)
 	assert.Equal(t, "HALT", r.State)
@@ -1298,11 +1299,51 @@ func TestRpcClient_InvokeScript(t *testing.T) {
 		}`))),
 	}, nil)
 
-	response := rpc.InvokeScript("")
+	response := rpc.InvokeScript("", "")
 	r := response.Result
 	assert.Equal(t, "00c1046e616d656763d26113bac4208254d98a3eebaee66230ead7b9", r.Script)
 	assert.Equal(t, "HALT", r.State)
 	assert.Equal(t, "516c696e6b20546f6b656e", r.Stack[0].Value)
+}
+
+func TestRpcClient_InvokeScript2(t *testing.T) {
+	var client = new(HttpClientMock)
+	var rpc = RpcClient{Endpoint: new(url.URL), httpClient: client}
+	client.On("Do", mock.Anything).Return(&http.Response{
+		Body: ioutil.NopCloser(bytes.NewReader([]byte(`{
+			"jsonrpc": "2.0",
+			"id": 1,
+			"result": {
+				"script": "00c1046e616d656763d26113bac4208254d98a3eebaee66230ead7b9",
+				"state": "HALT",
+				"gas_consumed": "0.229",
+				"stack": [
+					{
+						"type": "Array",
+						"value": [
+							{
+								"type": "ByteArray",
+								"value": "90aaf35d"
+							},
+							{
+								"type": "Integer",
+								"value": "1607668937"
+							}
+						]
+					}
+				]
+			}
+		}`))),
+	}, nil)
+
+	response := rpc.InvokeScript("", "")
+	r := response.Result
+	assert.Equal(t, "00c1046e616d656763d26113bac4208254d98a3eebaee66230ead7b9", r.Script)
+	assert.Equal(t, "HALT", r.State)
+	assert.Equal(t, "Array", r.Stack[0].Type)
+	r.Stack[0].Convert()
+	var a = r.Stack[0].Value.([]models.InvokeStack)
+	assert.Equal(t, "90aaf35d", a[0].Value)
 }
 
 func TestRpcClient_ListAddress(t *testing.T) {
@@ -1562,3 +1603,126 @@ func TestRpcClient_ValidateAddress(t *testing.T) {
 	assert.Equal(t, "AQVh2pG732YvtNaxEGkQUei3YA4cvo7d2i", r.Address)
 	assert.Equal(t, true, r.IsValid)
 }
+
+//var assets = []string{"8d51e5d75ec9adf8080213e0f310e78b0063f50d",
+//	"b6cb731f90cefebbd4f9cedd0cf56bd1e21967f4",
+//	"9a9db8a30a80951ec792effb9731af79781177c2",
+//	"7ba002bc1dbc918d555f1d466acda1d540332e28",
+//	"378b147c06a7737a6a712d7bdcfa0d5bc3ca4d53",
+//	"5e529a73fd7dad3b1fed587f8874c0855cd634c5"}
+//
+//func TestRedis(t *testing.T) {
+//	sb := sc.NewScriptBuilder()
+//	scriptHash := helper.HexToBytes("dad9fbc914203b99c1dfbaad0d98738d4e19924d") //
+//	address := "AGrgyoJR4FKeWCNGRvduSakaDzhZ9qikr9"
+//	lyh, _ := helper.AddressToScriptHash(address)
+//	log.Printf("lyh: %s", helper.BytesToHex(lyh.Bytes()))
+//
+//	for _, asset := range assets {
+//		cp1 := sc.ContractParameter{
+//			Type:  sc.ByteArray,
+//			Value: lyh.Bytes(),
+//		}
+//
+//		cp2 := sc.ContractParameter{
+//			Type:  sc.ByteArray,
+//			Value: helper.HexToBytes(asset), //
+//		}
+//
+//		args := []sc.ContractParameter{cp1, cp2}
+//		sb.MakeInvocationScript(scriptHash, "getStakingAmount", args)
+//	}
+//
+//	for _, asset := range assets {
+//		cp2 := sc.ContractParameter{
+//			Type:  sc.ByteArray,
+//			Value: helper.HexToBytes(asset), //
+//		}
+//		args := []sc.ContractParameter{cp2}
+//		sb.MakeInvocationScript(scriptHash, "getCurrentTotalAmount", args)
+//	}
+//
+//	script := sb.ToArray()
+//
+//	log.Printf("script: %s", helper.BytesToHex(script))
+//
+//	//client := NewClient("http://seed10.ngd.network:11332")
+//	client := NewClient("https://wallet.ngd.network:10331")
+//	checkWitnessHashes := "0000000000000000000000000000000000000000"
+//	response := client.InvokeScript(helper.BytesToHex(script), checkWitnessHashes)
+//	if response.HasError() || response.Result.State == "FAULT" {
+//		log.Printf("invoke script error: %s", response.Error.Message)
+//	}
+//
+//	if len(response.Result.Stack) > 0 {
+//		var amount *big.Int
+//		var success bool
+//		for i, stack := range response.Result.Stack {
+//			if stack.Type == "ByteArray" {
+//				amount = helper.BigIntFromNeoBytes(helper.HexToBytes(stack.Value.(string)))
+//			} else {
+//				amount, success = new(big.Int).SetString(stack.Value.(string), 10)
+//				assert.Equal(t, true, success)
+//			}
+//			if i < 6 {
+//				log.Printf("staking amount: %s", amount.String())
+//			} else {
+//				log.Printf("total amount: %s", amount.String())
+//			}
+//		}
+//	} else {
+//		log.Printf("stack empty")
+//	}
+//}
+//
+//func Test2(t *testing.T) {
+//	client := NewClient("https://wallet.ngd.network:10331")
+//	response := client.GetNep5Balances("Abj465Y7SYEWRg6sgUsN8hH8SWLxZmuHqZ")
+//	if response.HasError() {
+//		log.Printf("invoke script error: %s", response.Error.Message)
+//	}
+//
+//	for _, b := range response.Result.Balances {
+//		log.Printf("balance: %s", b.Amount)
+//	}
+//}
+//
+//func Test3(t *testing.T) {
+//	sb := sc.NewScriptBuilder()
+//	scriptHash := helper.HexToBytes("9a9db8a30a80951ec792effb9731af79781177c2") // pONT
+//	address := "AQ8JYMgWASbHFw1YvUjoBvGtUGuTQb6sDk"
+//	lyh, _ := helper.AddressToScriptHash(address)
+//	log.Printf("lyh: %s", helper.BytesToHex(lyh.Bytes()))
+//
+//	cp1 := sc.ContractParameter{
+//		Type:  sc.ByteArray,
+//		Value: lyh.Bytes(),
+//	}
+//
+//	args := []sc.ContractParameter{cp1}
+//	sb.MakeInvocationScript(scriptHash, "balanceOf", args)
+//	script := sb.ToArray()
+//
+//	log.Printf("script: %s", helper.BytesToHex(script))
+//
+//	//client := NewClient("http://seed10.ngd.network:11332")
+//	client := NewClient("https://wallet.ngd.network:10331")
+//
+//	checkWitnessHashes := "0000000000000000000000000000000000000000"
+//	response := client.InvokeScript(helper.BytesToHex(script), checkWitnessHashes)
+//	if response.HasError() || response.Result.State == "FAULT" {
+//		log.Printf("invoke script error: %s", response.Error.Message)
+//	}
+//
+//	stack := response.Result.Stack[0]
+//	var amount *big.Int
+//	var success bool
+//	if stack.Type == "ByteArray" {
+//		amount = helper.BigIntFromNeoBytes(helper.HexToBytes(stack.Value.(string)))
+//	} else {
+//		amount, success = new(big.Int).SetString(stack.Value.(string), 10)
+//		assert.Equal(t, true, success)
+//	}
+//
+//	log.Printf("balance: %s", amount.String())
+//}

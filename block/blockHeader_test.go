@@ -38,12 +38,11 @@ func TestBlockHeader_Deserialize(t *testing.T) {
 		0, 0, 0, 0, // Index
 		30, 0, 0, 0, 0, 0, 0, 0, // ConsensusData
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // NextConsensus
-		1, 0, 1, 81} // Witness
+		1, 0, 1, 81, // Witness
+		0} // check bit
 
 	br := io.NewBinaryReaderFromBuf(rawBlock)
-	bh := &BlockHeader{
-		Witness: &tx.Witness{},
-	}
+	bh := &BlockHeader{}
 	bh.Deserialize(br)
 	assert.Nil(t, br.Err)
 	assert.Equal(t, uint32(0), bh.Version)
@@ -60,12 +59,10 @@ func TestBlockHeader_DeserializeUnsigned(t *testing.T) {
 		0, 0, 0, 0, // Index
 		30, 0, 0, 0, 0, 0, 0, 0, // ConsensusData
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // NextConsensus
-		1, 0, 1, 81} // Witness
+    }
 
 	br := io.NewBinaryReaderFromBuf(rawBlock)
-	bh := &BlockHeader{
-		Witness: &tx.Witness{},
-	}
+	bh := &BlockHeader{}
 	bh.DeserializeUnsigned(br)
 	assert.Equal(t, uint32(0), bh.Version)
 	assert.Equal(t, uint32(4244941696), bh.Timestamp)
@@ -97,7 +94,8 @@ func TestBlockHeader_Serialize(t *testing.T) {
 		0, 0, 0, 0, // Index
 		30, 0, 0, 0, 0, 0, 0, 0, // ConsensusData
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // NextConsensus
-		1, 0, 1, 81} // Witness
+		1, 0, 1, 81, // Witness
+		0} // check bit
 
 	assert.Nil(t, buf.Err)
 	assert.Equal(t, helper.BytesToHex(requiredData), helper.BytesToHex(buf.Bytes()))
@@ -132,12 +130,9 @@ func TestNewBlockHeaderFromRPC(t *testing.T) {
 		Index:             0,
 		Nonce:             "000000007c2bac1d",
 		NextConsensus:     "APyEx5f4Zm4oCHwFWiSTaph1fPBxZacYVR",
-		Witness: struct {
-			InvocationScript   string `json:"invocation"`
-			VerificationScript string `json:"verification"`
-		}{
-			InvocationScript:"",
-			VerificationScript:"51",
+		Witness: models.RpcWitness{
+			Invocation:   "",
+			Verification: "51",
 		},
 		Confirmations: 5276880,
 		NextBlockHash: "0xd782db8a38b0eea0d7394e0f007c61c71798867578c77c387c08113903946cc9",
