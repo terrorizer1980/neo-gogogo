@@ -29,6 +29,15 @@ func TestNewClient(t *testing.T) {
 	assert.Equal(t, "http", endpoint.Scheme)
 }
 
+func TestRpcClient_NetError(t *testing.T)  {
+	c := NewClient("http://nemo:12345")
+	response := c.ClaimGas("")
+	assert.True(t, response.HasError())
+	s := response.GetErrorInfo()
+	//assert.True(t, strings.Contains(s, "no such host"))
+	assert.Less(t, 0, len(s))
+}
+
 func TestRpcClient_ClaimGas(t *testing.T) {
 	var client = new(HttpClientMock)
 	var rpc = RpcClient{Endpoint: new(url.URL), httpClient: client}
